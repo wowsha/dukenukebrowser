@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/pages.yml'
       - 'mobile-controls.js'
+      - 'LICENSE-MOBILE-CONTROLS.txt'
       - 'README.md'
   workflow_dispatch:
 
@@ -72,6 +73,7 @@ jobs:
           cp upstream/platform/emscripten/grp-manifest.json _site/grp-manifest.json
           cp upstream/platform/emscripten/og-image.png _site/og-image.png
           cp mobile-controls.js _site/mobile-controls.js
+          cp LICENSE-MOBILE-CONTROLS.txt _site/LICENSE-MOBILE-CONTROLS.txt
           cp upstream/assets/shareware/LICENSE.TXT _site/SHAREWARE-LICENSE.TXT
           cp upstream/source/duke3d/gpl-2.0.txt _site/licenses/GPL-2.0.txt
           cp upstream/source/build/buildlic.txt _site/licenses/BUILDLIC.txt
