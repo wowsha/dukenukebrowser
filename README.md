@@ -20,7 +20,9 @@ The controls are a lightweight browser layer around the engine: the upstream eng
 
 The `.github/workflows/pages.yml` workflow checks out the upstream engine at a pinned commit, validates the upstream shareware package checksum, installs the Emscripten toolchain on a GitHub-hosted runner, builds WebAssembly, adds the mobile UI, and deploys the generated static site to GitHub Pages. You do not need to install Emscripten, Node, or any build tools.
 
-The first workflow run may take several minutes. Open the **Actions** tab to see its result. If GitHub Pages is not provisioned automatically, go to **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**; no source compilation or command-line work is needed.
+## One-time GitHub setup (no compilation)
+
+This repository does not have a Pages site configured yet. In GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. Then open **Actions → Build and deploy Duke Nukem 3D (mobile web) → Run workflow** and run it on `main`. The build happens on GitHub's servers; you do not need a terminal or any local tools. The first run can take several minutes. Future pushes that change the wrapper or workflow automatically rebuild and redeploy the site.
 
 ## Game data and licenses
 
