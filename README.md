@@ -29,6 +29,6 @@ This repository does not have a Pages site configured yet. In GitHub, open **Set
 - Only the **Duke Nukem 3D 1.3D shareware episode** is included; no retail/Atomic Edition assets are included.
 - The upstream shareware files and their original `LICENSE.TXT` are used unchanged. The license permits free online services to distribute the game subject to its terms; read [the deployed shareware license](https://wowsha.github.io/dukenukebrowser/SHAREWARE-LICENSE.TXT).
 - The engine is [EDuke32](https://www.eduke32.com/), distributed under the licenses in its upstream source tree. This project deploys the upstream engine without changing its C/C++ source; the exact upstream revision built by CI is [37b56eefaf8125eaa853c417512019cc7ad94b81](https://github.com/DigitalCyberSoft/eduke32-wasm/tree/37b56eefaf8125eaa853c417512019cc7ad94b81).
-- The touch-control wrapper in this repository is MIT-licensed (see the header in `mobile-controls.js`).
+- The touch-control wrapper in this repository is MIT-licensed; see [`LICENSE-MOBILE-CONTROLS.txt`](LICENSE-MOBILE-CONTROLS.txt).
 
 Duke Nukem 3D and related names are trademarks of their respective owners. This is an unofficial fan port and is not affiliated with or endorsed by 3D Realms.
