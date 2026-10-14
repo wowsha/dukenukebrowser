@@ -255,16 +255,19 @@
   // Feed relative motion into SDL/Emscripten without relying on pointer lock,
   // which mobile browsers either don't support or don't allow for touch input.
   var lookPointer = null;
-  var lookX = 0;
-  var lookY = 0;
+  var lookTouchX = 0;
+  var lookTouchY = 0;
+  var virtualMouseX = 0;
+  var virtualMouseY = 0;
 
   function sendLook(dx, dy) {
     var rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     var gain = 1.35;
-    var mx = Math.max(rect.left + 3, Math.min(rect.right - 3, lookX + dx));
-    var my = Math.max(rect.top + 3, Math.min(rect.bottom - 3, lookY + dy));
-    lookX = mx; lookY = my;
+    virtualMouseX = Math.max(rect.left + 3, Math.min(rect.right - 3, virtualMouseX + dx));
+    virtualMouseY = Math.max(rect.top + 3, Math.min(rect.bottom - 3, virtualMouseY + dy));
+    var mx = virtualMouseX;
+    var my = virtualMouseY;
 
     var event;
     try {
@@ -288,15 +291,20 @@
     event.preventDefault();
     event.stopPropagation();
     lookPointer = event.pointerId;
-    lookX = event.clientX;
-    lookY = event.clientY;
+    lookTouchX = event.clientX;
+    lookTouchY = event.clientY;
+    var rect = canvas.getBoundingClientRect();
+    virtualMouseX = rect.left + rect.width / 2;
+    virtualMouseY = rect.top + rect.height / 2;
     try { look.setPointerCapture(event.pointerId); } catch (_) {}
   });
   look.addEventListener('pointermove', function (event) {
     if (event.pointerId !== lookPointer) return;
     event.preventDefault();
-    var dx = event.clientX - lookX;
-    var dy = event.clientY - lookY;
+    var dx = event.clientX - lookTouchX;
+    var dy = event.clientY - lookTouchY;
+    lookTouchX = event.clientX;
+    lookTouchY = event.clientY;
     sendLook(dx, dy);
   });
   function stopLook(event) {
