@@ -1,0 +1,99 @@
+name: Build and deploy Duke Nukem 3D (mobile web)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pages.yml'
+      - 'mobile-controls.js'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this project's wrapper
+        uses: actions/checkout@v4
+
+      # Keep the engine and game data upstream; only the mobile input wrapper
+      # is maintained here. Pin a known revision so builds are reproducible.
+      - name: Checkout EDuke32-WASM
+        uses: actions/checkout@v4
+        with:
+          repository: DigitalCyberSoft/eduke32-wasm
+          ref: 37b56eefaf8125eaa853c417512019cc7ad94b81
+          path: upstream
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.5
+          actions-cache-folder: emsdk-cache
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify original shareware files
+        working-directory: upstream
+        run: sha256sum -c assets/shareware/SHA256SUMS
+
+      - name: Build the multiplayer transport bundle
+        working-directory: upstream/platform/emscripten
+        run: |
+          npm ci
+          npm test
+          npm run build:net
+
+      - name: Compile EDuke32 to WebAssembly on GitHub
+        run: make -C upstream PLATFORM=EMSCRIPTEN EM_SINGLE_FILE=0 NETDUKE32=1 -j"$(nproc)"
+
+      - name: Assemble the mobile-friendly static site
+        run: |
+          set -eux
+          mkdir -p _site/licenses
+          cp upstream/eduke32.js upstream/eduke32.wasm upstream/eduke32.data _site/
+          cp upstream/platform/emscripten/index.html _site/index.html
+          cp upstream/platform/emscripten/eduke32-net.js _site/eduke32-net.js
+          cp upstream/platform/emscripten/grp-manifest.json _site/grp-manifest.json
+          cp upstream/platform/emscripten/og-image.png _site/og-image.png
+          cp mobile-controls.js _site/mobile-controls.js
+          cp upstream/assets/shareware/LICENSE.TXT _site/SHAREWARE-LICENSE.TXT
+          cp upstream/source/duke3d/gpl-2.0.txt _site/licenses/GPL-2.0.txt
+          cp upstream/source/build/buildlic.txt _site/licenses/BUILDLIC.txt
+          BUILD_ID="${GITHUB_RUN_NUMBER}-$(git -C upstream rev-parse --short HEAD)"
+          sed -i "s/__BUILD_ID__/${BUILD_ID}/g" _site/index.html
+          sed -i 's|</body>|<script src="mobile-controls.js"></script>\n</body>|' _site/index.html
+          touch _site/.nojekyll
+          echo "Assembled site:"
+          ls -lh _site
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
