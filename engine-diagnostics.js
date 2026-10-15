@@ -128,7 +128,10 @@
       'Canvas found: ' + !!canvas,
       'Canvas backing size: ' + (canvas ? canvas.width + ' x ' + canvas.height : '(missing)'),
       'Canvas CSS size: ' + (rect ? Math.round(rect.width) + ' x ' + Math.round(rect.height) : '(missing)'),
-      'Canvas sample: ' + canvasState.summary,\n      'Canvas context kind: ' + canvasState.kind,\n      'Browser animation-frame rate: ' + diagnosticRafFps + ' fps',\n      'Page visibility: ' + document.visibilityState,
+      'Canvas sample: ' + canvasState.summary,
+      'Canvas context kind: ' + canvasState.kind,
+      'Browser animation-frame rate: ' + diagnosticRafFps + ' fps',
+      'Page visibility: ' + document.visibilityState,
       'Saved previous crash: ' + priorCrash,
       'Note: calledRun/runtimeInitialized flags are not reliable for this EDuke32 build.'
     ];
