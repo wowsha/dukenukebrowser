@@ -1,12 +1,17 @@
-/* Fix the canvas drawing buffer on mobile browsers.
- * The upstream wrapper sizes the CSS box, but some mobile/emulated Chrome
- * sessions leave the actual canvas at the HTML default 300x150. The software
- * renderer then draws into a tiny buffer which is stretched across the screen.
+/* Fix only the browser's default canvas size before EDuke32 initializes SDL.
+ * After videoSetMode(), SDL owns the backing dimensions (for example 640x400)
+ * and the browser may scale that buffer to the mobile CSS box. Continuously
+ * forcing it to the CSS dimensions invalidates SDL's software framebuffer.
  */
 (function () {
   'use strict';
   var canvas = document.getElementById('canvas');
   if (!canvas) return;
+
+  // Emscripten starts an unconfigured canvas at 300x150. Correct that default
+  // once, before eduke32.js creates its SDL window. Never resize after that:
+  // the SDL video mode must own the drawing buffer from then on.
+  if (canvas.width !== 300 || canvas.height !== 150) return;
 
   function targetSize() {
     if (localStorage.getItem('e32_display') === 'fill') {
@@ -17,7 +22,10 @@
     }
     if (typeof window.renderBox === 'function') {
       var box = window.renderBox();
-      return { width: Math.max(2, box.w | 0), height: Math.max(2, box.h | 0) };
+      return {
+        width: Math.max(2, box.w | 0),
+        height: Math.max(2, box.h | 0)
+      };
     }
     var rect = canvas.getBoundingClientRect();
     return {
@@ -26,38 +34,9 @@
     };
   }
 
-  var syncing = false;
-  function syncBackingSize() {
-    if (syncing || !canvas.isConnected) return;
-    var size = targetSize();
-    if (canvas.width === size.width && canvas.height === size.height) return;
-    syncing = true;
-    canvas.width = size.width;
-    canvas.height = size.height;
-    syncing = false;
-    console.info('[mobile-canvas] drawing buffer set to ' + canvas.width + 'x' + canvas.height);
-  }
-
-  // Run after the upstream fitCanvas() so both the CSS box and drawing buffer
-  // agree. Keep a resize listener because the upstream listener captured its
-  // original function before this patch was installed.
-  var upstreamFit = window.fitCanvas;
-  if (typeof upstreamFit === 'function') {
-    window.fitCanvas = function () {
-      upstreamFit.apply(this, arguments);
-      syncBackingSize();
-    };
-  }
-  window.addEventListener('resize', syncBackingSize, { passive: true });
-  window.addEventListener('orientationchange', function () {
-    requestAnimationFrame(syncBackingSize);
-  }, { passive: true });
-
-  // Some Emscripten/SDL paths reset canvas attributes after startup. Restore
-  // the intended buffer only when they differ; this does not loop on our own writes.
-  new MutationObserver(syncBackingSize).observe(canvas, {
-    attributes: true,
-    attributeFilter: ['width', 'height']
-  });
-  syncBackingSize();
+  var size = targetSize();
+  canvas.width = size.width;
+  canvas.height = size.height;
+  console.info('[mobile-canvas] initial drawing buffer set to ' +
+    canvas.width + 'x' + canvas.height + '; SDL may resize it during video init');
 })();
