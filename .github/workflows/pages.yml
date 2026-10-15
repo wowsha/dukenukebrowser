@@ -86,7 +86,7 @@ jobs:
           BUILD_ID="${GITHUB_RUN_NUMBER}-$(git -C upstream rev-parse --short HEAD)"
           sed -i "s/__BUILD_ID__/${BUILD_ID}/g" _site/index.html
           # Install cross-origin isolation first, then start diagnostics before the engine scripts execute.
-          sed -i 's|</head>|<script src="coi-serviceworker.js"></script>\n<script src="engine-diagnostics.js"></script>\n</head>|' _site/index.html
+          sed -i "s|</head>|<script src=\"coi-serviceworker.js\"></script>\\n<script src=\"engine-diagnostics.js?v=${BUILD_ID}\"></script>\\n</head>|" _site/index.html
           sed -i 's|</body>|<script src="mobile-controls.js"></script>\n</body>|' _site/index.html
           touch _site/.nojekyll
           echo "Assembled site:"
