@@ -12,11 +12,11 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 +    EM_ASM({
 +        var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
 +        p.frameCalls = (p.frameCalls || 0) + 1;
-+        p.lastFrame = {
++        p.lastFrame = ({
 +            resizeX: $0, resizeY: $1, minimized: $2, lockcount: $3,
 +            frameplace: $4, offscreenrendering: $5,
 +            width: $6, height: $7, bpp: $8, at: performance.now()
-+        };
++        });
 +    }, sdl_resize.x, sdl_resize.y, sdl_minimized, lockcount,
 +       (int)!!frameplace, offscreenrendering, xres, yres, bpp);
 +#endif
@@ -29,10 +29,10 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 +            var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
 +            if ($0) p.resizeDrops = (p.resizeDrops || 0) + 1;
 +            if ($1) p.minimizedDrops = (p.minimizedDrops || 0) + 1;
-+            p.lastDroppedFrame = {
++            p.lastDroppedFrame = ({
 +                resizeX: $0, resizeY: $1, minimized: $2, lockcount: $3,
 +                frameplace: $4, at: performance.now()
-+            };
++            });
 +        }, sdl_resize.x, sdl_resize.y, sdl_minimized, lockcount, (int)!!frameplace);
 +
 +        // Do not strand a software-frame lock when SDL delivers a resize while
@@ -58,12 +58,12 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 +    EM_ASM({
 +        var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
 +        p.surfaceUpdates = (p.surfaceUpdates || 0) + 1;
-+        p.lastSurfaceUpdate = {
++        p.lastSurfaceUpdate = ({
 +            result: $0, width: $1, height: $2, bpp: $3,
 +            lockcount: $4, canvasWidth: Module.canvas ? Module.canvas.width : null,
 +            canvasHeight: Module.canvas ? Module.canvas.height : null,
 +            at: performance.now()
-+        };
++        });
 +    }, surfaceUpdateResult, xres, yres, bpp, lockcount);
 +#endif
 +    if (surfaceUpdateResult)
