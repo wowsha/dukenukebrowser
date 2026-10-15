@@ -11,6 +11,7 @@ on:
       - 'coi-serviceworker.js'
       - 'LICENSE-MOBILE-CONTROLS.txt'
       - 'README.md'
+      - 'patches/**'
   workflow_dispatch:
 
 permissions:
@@ -64,6 +65,11 @@ jobs:
           npm ci
           npm test
           npm run build:net
+
+      - name: Apply Emscripten SDL frame-resize fix
+        run: |
+          cd upstream
+          git apply ../patches/emscripten-frame-resize.patch
 
       - name: Compile EDuke32 to WebAssembly on GitHub
         run: make -C upstream PLATFORM=EMSCRIPTEN EM_SINGLE_FILE=0 NETDUKE32=1 -j"$(nproc)"

@@ -1,0 +1,74 @@
+diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
+--- a/source/build/src/sdlayer.cpp
++++ b/source/build/src/sdlayer.cpp
+@@ -2068,10 +2068,47 @@ void videoShowFrame(int32_t w)
+ {
+     UNREFERENCED_PARAMETER(w);
+ 
++    // Publish the SDL software-frame state before any early return. This is
++    // intentionally browser-only and lets the host diagnostics identify a
++    // resize/minimize latch that would otherwise make the canvas stay black.
++#ifdef __EMSCRIPTEN__
++    EM_ASM({
++        var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
++        p.frameCalls = (p.frameCalls || 0) + 1;
++        p.lastFrame = {
++            resizeX: $0, resizeY: $1, minimized: $2, lockcount: $3,
++            frameplace: $4, offscreenrendering: $5,
++            width: $6, height: $7, bpp: $8, at: performance.now()
++        };
++    }, sdl_resize.x, sdl_resize.y, sdl_minimized, lockcount,
++       (int)!!frameplace, offscreenrendering, xres, yres, bpp);
++#endif
++
+     // if we're minimized or about to resize, just throw away the frame
+     if (sdl_resize.x || sdl_minimized)
++    {
++#ifdef __EMSCRIPTEN__
++        EM_ASM({
++            var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
++            if ($0) p.resizeDrops = (p.resizeDrops || 0) + 1;
++            if ($1) p.minimizedDrops = (p.minimizedDrops || 0) + 1;
++            p.lastDroppedFrame = {
++                resizeX: $0, resizeY: $1, minimized: $2, lockcount: $3,
++                frameplace: $4, at: performance.now()
++            };
++        }, sdl_resize.x, sdl_resize.y, sdl_minimized, lockcount, (int)!!frameplace);
++
++        // Do not strand a software-frame lock when SDL delivers a resize while
++        // a frame is in progress. handleevents() can only apply the pending
++        // resize when frameplace is clear; returning here with lockcount > 0
++        // otherwise wedges both the resize and every future presentation.
++        while (lockcount > 0 && frameplace)
++            videoEndDrawing();
++        if (!frameplace)
++            lockcount = 0;
++#endif
+         return;
++    }
+ 
+ #ifdef __ANDROID__
+     if (mobile_halted) return;
+@@ -2199,7 +2236,20 @@ void videoShowFrame(int32_t w)
+     if (SDL_MUSTLOCK(sdl_surface)) SDL_UnlockSurface(sdl_surface);
+ #if SDL_MAJOR_VERSION >= 2
+-    if (SDL_UpdateWindowSurface(sdl_window))
++    int const surfaceUpdateResult = SDL_UpdateWindowSurface(sdl_window);
++#ifdef __EMSCRIPTEN__
++    EM_ASM({
++        var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
++        p.surfaceUpdates = (p.surfaceUpdates || 0) + 1;
++        p.lastSurfaceUpdate = {
++            result: $0, width: $1, height: $2, bpp: $3,
++            lockcount: $4, canvasWidth: Module.canvas ? Module.canvas.width : null,
++            canvasHeight: Module.canvas ? Module.canvas.height : null,
++            at: performance.now()
++        };
++    }, surfaceUpdateResult, xres, yres, bpp, lockcount);
++#endif
++    if (surfaceUpdateResult)
+     {
+         // If a fullscreen X11 window is minimized then this may be required.
+         // FIXME: What to do if this fails...
+         sdl_surface = SDL_GetWindowSurface(sdl_window);
+         SDL_UpdateWindowSurface(sdl_window);

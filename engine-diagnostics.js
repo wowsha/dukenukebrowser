@@ -230,6 +230,7 @@
       'Canvas sample: ' + canvasState.summary,
       'Canvas context kind: ' + canvasState.kind,
       'SDL render probe: ' + JSON.stringify(renderProbeState(module)),
+      'Engine video-frame state: ' + JSON.stringify(window.__e32VideoProbe || '(not exposed by engine yet)'),
       'Browser animation-frame rate: ' + diagnosticRafFps + ' fps',
       'Page visibility: ' + document.visibilityState,
       'Saved previous crash: ' + priorCrash,
