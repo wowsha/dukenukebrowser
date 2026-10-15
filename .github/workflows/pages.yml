@@ -80,13 +80,14 @@ jobs:
           cp engine-diagnostics.js _site/engine-diagnostics.js
           cp coi-serviceworker.js _site/coi-serviceworker.js
           cp LICENSE-MOBILE-CONTROLS.txt _site/LICENSE-MOBILE-CONTROLS.txt
-          cp upstream/assets/shareware/LICENSE.TXT _site/SHAREWARE-LICENSE.TXT
+          cp upstream/assets/shareware/LICENSE.TXT _site/SHAREWARE-LICENSE.txt
           cp upstream/source/duke3d/gpl-2.0.txt _site/licenses/GPL-2.0.txt
           cp upstream/source/build/buildlic.txt _site/licenses/BUILDLIC.txt
-          BUILD_ID="${GITHUB_RUN_NUMBER}-$(git -C upstream rev-parse --short HEAD)"
-          sed -i "s/__BUILD_ID__/${BUILD_ID}/g" _site/index.html
-          sed -i 's|</head>|<script src="coi-serviceworker.js"></script>\n</head>|' _site/index.html
-          sed -i 's|</body>|<script src="engine-diagnostics.js"></script>\n<script src="mobile-controls.js"></script>\n</body>|' _site/index.html
+          BUILD_ID="\${GITHUB_RUN_NUMBER}-$(git -C upstream rev-parse --short HEAD)"
+          sed -i "s/__BUILD_ID__/\${BUILD_ID}/g" _site/index.html
+          # Install cross-origin isolation first, then start diagnostics before the engine scripts execute.
+          sed -i 's|</head>|<script src="coi-serviceworker.js"></script>\\n<script src="engine-diagnostics.js"></script>\\n</head>|' _site/index.html
+          sed -i 's|</body>|<script src="mobile-controls.js"></script>\\n</body>|' _site/index.html
           touch _site/.nojekyll
           echo "Assembled site:"
           ls -lh _site
@@ -99,7 +100,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: \${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
