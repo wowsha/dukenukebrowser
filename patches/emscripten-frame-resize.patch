@@ -1,7 +1,7 @@
 diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 --- a/source/build/src/sdlayer.cpp
 +++ b/source/build/src/sdlayer.cpp
-@@ -1427,5 +1427,21 @@ void videoGetModes(int display)
+@@ -1427,6 +1427,22 @@ void videoGetModes(int display)
      SDL_CHECKFSMODES(maxx, maxy);
  
 +#ifdef __EMSCRIPTEN__
@@ -16,6 +16,7 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 +
      // add windowed modes next
      // SDL sorts display modes largest to smallest, so we can just compare with mode 0
+     // to make sure we aren't adding modes that are larger than the actual screen res
 -    SDL_GetDisplayMode(display, 0, &dispmode);
 +    if (SDL_GetDisplayMode(display, 0, &dispmode) < 0 ||
 +        dispmode.w <= 0 || dispmode.h <= 0)
