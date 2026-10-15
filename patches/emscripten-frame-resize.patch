@@ -1,7 +1,30 @@
 diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 --- a/source/build/src/sdlayer.cpp
 +++ b/source/build/src/sdlayer.cpp
-@@ -2068,9 +2068,47 @@ void videoShowFrame(int32_t w)
+@@ -1427,5 +1427,21 @@ void videoGetModes(int display)
+     SDL_CHECKFSMODES(maxx, maxy);
+ 
++#ifdef __EMSCRIPTEN__
++    // Some browser SDL backends report no discrete display modes. The caller
++    // skips video initialization entirely when validmodecnt remains zero.
++    if (validmodecnt == 0)
++    {
++        SDL_ADDMODE(640, 480, 8, 1);
++        initprintf("Emscripten: SDL reported no display modes; using 640x480 fallback.\n");
++    }
++#endif
++
+     // add windowed modes next
+     // SDL sorts display modes largest to smallest, so we can just compare with mode 0
+-    SDL_GetDisplayMode(display, 0, &dispmode);
++    if (SDL_GetDisplayMode(display, 0, &dispmode) < 0 ||
++        dispmode.w <= 0 || dispmode.h <= 0)
++    {
++        // Some browser video drivers have no mode zero to query.
++        dispmode.w = maxx > 0 ? maxx : 640;
++        dispmode.h = maxy > 0 ? maxy : 480;
++    }
+@@ -2068,9 +2084,47 @@ void videoShowFrame(int32_t w)
  {
      UNREFERENCED_PARAMETER(w);
  
@@ -49,7 +72,7 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
  
  #ifdef __ANDROID__
      if (mobile_halted) return;
-@@ -2199,8 +2236,21 @@ void videoShowFrame(int32_t w)
+@@ -2199,8 +2253,21 @@ void videoShowFrame(int32_t w)
      if (SDL_MUSTLOCK(sdl_surface)) SDL_UnlockSurface(sdl_surface);
  #if SDL_MAJOR_VERSION >= 2
 -    if (SDL_UpdateWindowSurface(sdl_window))
