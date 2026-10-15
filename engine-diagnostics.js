@@ -2,6 +2,105 @@
   const logs = [];
   const maxLogs = 50;
   const startTime = performance.now();
+  const renderProbe = {
+    createCalls: 0,
+    putCalls: 0,
+    lastCreate: null,
+    lastCreateError: null,
+    lastCreateAt: 0,
+    lastPutAt: 0,
+    lastCanvasSize: null,
+    lastSourceSize: null,
+    lastSourceNonBlack: null,
+    lastSourceOpaque: null,
+    lastSourceSamples: 0,
+    hookError: null
+  };
+
+  // Observe the actual SDL -> Canvas2D presentation path before EDuke32 loads.
+  // This distinguishes an engine that never presents a frame from one that
+  // presents a completely black software-renderer buffer.
+  const sampleSourceImage = (image) => {
+    const data = image && image.data;
+    if (!data || !data.length) return;
+    const pixels = Math.floor(data.length / 4);
+    const stride = Math.max(1, Math.floor(pixels / 1024));
+    let nonBlack = 0;
+    let opaque = 0;
+    let samples = 0;
+    for (let p = 0; p < pixels * 4; p += stride * 4) {
+      if (data[p] > 8 || data[p + 1] > 8 || data[p + 2] > 8) nonBlack++;
+      if (data[p + 3] > 8) opaque++;
+      samples++;
+    }
+    renderProbe.lastSourceSize = (image.width || '?') + 'x' + (image.height || '?');
+    renderProbe.lastSourceNonBlack = nonBlack;
+    renderProbe.lastSourceOpaque = opaque;
+    renderProbe.lastSourceSamples = samples;
+  };
+
+  try {
+    const canvas2d = window.CanvasRenderingContext2D;
+    const proto = canvas2d && canvas2d.prototype;
+    if (proto && !proto.__e32RenderProbeInstalled) {
+      const originalCreateImageData = proto.createImageData;
+      const originalPutImageData = proto.putImageData;
+      proto.createImageData = function () {
+        const tracked = this.canvas && this.canvas.id === 'canvas';
+        if (tracked) {
+          renderProbe.createCalls++;
+          renderProbe.lastCreate = Array.from(arguments).slice(0, 2).join('x');
+          renderProbe.lastCreateAt = performance.now();
+        }
+        try {
+          return originalCreateImageData.apply(this, arguments);
+        } catch (error) {
+          if (tracked) renderProbe.lastCreateError = stringify(error);
+          throw error;
+        }
+      };
+      proto.putImageData = function (image) {
+        const tracked = this.canvas && this.canvas.id === 'canvas';
+        if (tracked) {
+          renderProbe.putCalls++;
+          renderProbe.lastPutAt = performance.now();
+          renderProbe.lastCanvasSize = this.canvas.width + 'x' + this.canvas.height;
+          if (renderProbe.putCalls === 1 || renderProbe.putCalls % 12 === 1) {
+            try { sampleSourceImage(image); } catch (_) {}
+          }
+        }
+        return originalPutImageData.apply(this, arguments);
+      };
+      Object.defineProperty(proto, '__e32RenderProbeInstalled', { value: true });
+    }
+  } catch (error) {
+    renderProbe.hookError = stringify(error);
+  }
+
+  const renderProbeState = (module) => {
+    const sdl = module && module.SDL2;
+    const image = sdl && sdl.image;
+    const ctxCanvas = sdl && sdl.ctxCanvas;
+    const now = performance.now();
+    return {
+      createCalls: renderProbe.createCalls,
+      lastCreate: renderProbe.lastCreate,
+      lastCreateError: renderProbe.lastCreateError,
+      secondsSinceCreate: renderProbe.lastCreateAt ? +((now - renderProbe.lastCreateAt) / 1000).toFixed(1) : null,
+      putCalls: renderProbe.putCalls,
+      secondsSincePut: renderProbe.lastPutAt ? +((now - renderProbe.lastPutAt) / 1000).toFixed(1) : null,
+      lastCanvasSize: renderProbe.lastCanvasSize,
+      lastSourceSize: renderProbe.lastSourceSize,
+      sourceNonBlackSamples: renderProbe.lastSourceNonBlack,
+      sourceOpaqueSamples: renderProbe.lastSourceOpaque,
+      sourceSamples: renderProbe.lastSourceSamples,
+      sdlBufferSize: sdl ? ((sdl.w || '?') + 'x' + (sdl.h || '?')) : '(Module.SDL2 absent)',
+      sdlImageSize: image ? ((image.width || '?') + 'x' + (image.height || '?')) : '(SDL2 image absent)',
+      sdlContextCanvas: ctxCanvas ? (ctxCanvas.id || ctxCanvas.tagName || '(unlabelled canvas)') : '(SDL2 context absent)',
+      hookError: renderProbe.hookError
+    };
+  };
+
   let pendingPanel = null;
   let waitingForBody = false;
 
@@ -130,6 +229,7 @@
       'Canvas CSS size: ' + (rect ? Math.round(rect.width) + ' x ' + Math.round(rect.height) : '(missing)'),
       'Canvas sample: ' + canvasState.summary,
       'Canvas context kind: ' + canvasState.kind,
+      'SDL render probe: ' + JSON.stringify(renderProbeState(module)),
       'Browser animation-frame rate: ' + diagnosticRafFps + ' fps',
       'Page visibility: ' + document.visibilityState,
       'Saved previous crash: ' + priorCrash,
