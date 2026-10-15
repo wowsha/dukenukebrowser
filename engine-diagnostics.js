@@ -37,32 +37,56 @@
     };
   });
 
+  let diagnosticRafFrames = 0;
+  let diagnosticRafLast = performance.now();
+  let diagnosticRafFps = 0;
+  const countDiagnosticFrames = (now) => {
+    diagnosticRafFrames++;
+    if (now - diagnosticRafLast >= 1000) {
+      diagnosticRafFps = Math.round(diagnosticRafFrames * 1000 / (now - diagnosticRafLast));
+      diagnosticRafFrames = 0;
+      diagnosticRafLast = now;
+    }
+    requestAnimationFrame(countDiagnosticFrames);
+  };
+  requestAnimationFrame(countDiagnosticFrames);
+
   const inspectCanvas = () => {
     const canvas = document.querySelector('canvas');
-    if (!canvas) return { summary: 'canvas missing', black: true, sampled: false };
-    if (!canvas.width || !canvas.height) return { summary: 'canvas backing size is zero', black: true, sampled: false };
+    if (!canvas) return { summary: 'canvas missing', black: true, sampled: false, kind: 'missing' };
+    if (!canvas.width || !canvas.height) return { summary: 'canvas backing size is zero', black: true, sampled: false, kind: 'zero-size' };
+    const w = Math.min(canvas.width, 64);
+    const h = Math.min(canvas.height, 64);
+    const sx = Math.max(0, Math.floor((canvas.width - w) / 2));
+    const sy = Math.max(0, Math.floor((canvas.height - h) / 2));
     try {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return { summary: '2D context unavailable or another context type is active', black: false, sampled: false };
-      const w = Math.min(canvas.width, 64);
-      const h = Math.min(canvas.height, 64);
-      const sx = Math.max(0, Math.floor((canvas.width - w) / 2));
-      const sy = Math.max(0, Math.floor((canvas.height - h) / 2));
-      const pixels = ctx.getImageData(sx, sy, w, h).data;
-      let nonBlack = 0;
-      for (let i = 0; i < pixels.length; i += 4) {
-        if (pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8) nonBlack++;
+      const ctx2d = canvas.getContext('2d');
+      if (ctx2d) {
+        const pixels = ctx2d.getImageData(sx, sy, w, h).data;
+        let nonBlack = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8) nonBlack++;
+        }
+        const total = w * h;
+        return { summary: '2D center sample: ' + nonBlack + '/' + total + ' non-black pixels', black: nonBlack <= 1, sampled: true, kind: '2d', nonBlack, total };
       }
-      const total = w * h;
-      return {
-        summary: '2D center sample: ' + nonBlack + '/' + total + ' non-black pixels',
-        black: nonBlack <= 1,
-        sampled: true,
-        nonBlack,
-        total
-      };
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (gl) {
+        if (gl.isContextLost()) return { summary: 'WebGL context is LOST', black: true, sampled: false, kind: 'webgl-lost' };
+        const pixels = new Uint8Array(w * h * 4);
+        gl.finish();
+        gl.readPixels(sx, Math.max(0, canvas.height - sy - h), w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        let nonBlack = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8) nonBlack++;
+        }
+        const total = w * h;
+        const attrs = gl.getContextAttributes() || {};
+        return { summary: 'WebGL center sample: ' + nonBlack + '/' + total + ' non-black pixels; context=' + (gl instanceof WebGL2RenderingContext ? 'webgl2' : 'webgl') + ', alpha=' + attrs.alpha, black: nonBlack <= 1, sampled: true, kind: 'webgl', nonBlack, total };
+      }
+      return { summary: 'No readable 2D or WebGL context (canvas may use another context)', black: false, sampled: false, kind: 'unknown' };
     } catch (e) {
-      return { summary: '2D sample failed: ' + stringify(e), black: false, sampled: false };
+      return { summary: 'Canvas pixel sample failed: ' + stringify(e), black: false, sampled: false, kind: 'error' };
     }
   };
 
@@ -104,7 +128,7 @@
       'Canvas found: ' + !!canvas,
       'Canvas backing size: ' + (canvas ? canvas.width + ' x ' + canvas.height : '(missing)'),
       'Canvas CSS size: ' + (rect ? Math.round(rect.width) + ' x ' + Math.round(rect.height) : '(missing)'),
-      'Canvas sample: ' + canvasState.summary,
+      'Canvas sample: ' + canvasState.summary,\n      'Canvas context kind: ' + canvasState.kind,\n      'Browser animation-frame rate: ' + diagnosticRafFps + ' fps',\n      'Page visibility: ' + document.visibilityState,
       'Saved previous crash: ' + priorCrash,
       'Note: calledRun/runtimeInitialized flags are not reliable for this EDuke32 build.'
     ];
