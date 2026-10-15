@@ -1,7 +1,7 @@
 diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 --- a/source/build/src/sdlayer.cpp
 +++ b/source/build/src/sdlayer.cpp
-@@ -2068,10 +2068,47 @@ void videoShowFrame(int32_t w)
+@@ -2068,9 +2068,47 @@ void videoShowFrame(int32_t w)
  {
      UNREFERENCED_PARAMETER(w);
  
@@ -49,7 +49,7 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
  
  #ifdef __ANDROID__
      if (mobile_halted) return;
-@@ -2199,7 +2236,20 @@ void videoShowFrame(int32_t w)
+@@ -2199,8 +2236,21 @@ void videoShowFrame(int32_t w)
      if (SDL_MUSTLOCK(sdl_surface)) SDL_UnlockSurface(sdl_surface);
  #if SDL_MAJOR_VERSION >= 2
 -    if (SDL_UpdateWindowSurface(sdl_window))
