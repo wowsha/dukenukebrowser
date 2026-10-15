@@ -261,31 +261,27 @@
       return;
     }
 
-    let panel = document.getElementById('engine-diagnostic-panel');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'engine-diagnostic-panel';
-      panel.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;top:10px;max-height:82vh;overflow:auto;background:#160d0d;color:#fff;border:2px solid #ff6b6b;border-radius:10px;padding:14px;font:12px/1.4 system-ui,sans-serif;white-space:pre-wrap;box-shadow:0 4px 24px #0009';
-      document.body.appendChild(panel);
-    }
+    // Freeze the first diagnostic panel. A crashing main loop can dispatch
+    // repeated unhandled errors every frame; rebuilding the panel changes FPS
+    // and text selection under the user's finger, making the error impossible
+    // to copy. Console capture continues in the background, but this report is
+    // immutable once shown.
+    if (document.getElementById('engine-diagnostic-panel')) return;
 
-    panel.replaceChildren();
+    const panel = document.createElement('div');
+    panel.id = 'engine-diagnostic-panel';
+    panel.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;top:10px;max-height:82vh;overflow:auto;background:#160d0d;color:#fff;border:2px solid #ff6b6b;border-radius:10px;padding:14px;font:12px/1.4 system-ui,sans-serif;white-space:pre-wrap;box-shadow:0 4px 24px #0009';
+    document.body.appendChild(panel);
+
+    const frozenReport = reportText(title, detail);
     const h = document.createElement('strong');
     h.textContent = title;
     panel.appendChild(h);
 
     const p = document.createElement('pre');
     p.style.cssText = 'font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0';
-    p.textContent = detail + '\n\n' + engineState().join('\n');
+    p.textContent = frozenReport;
     panel.appendChild(p);
-
-    const logTitle = document.createElement('strong');
-    logTitle.textContent = 'Recent browser console';
-    panel.appendChild(logTitle);
-    const logBox = document.createElement('pre');
-    logBox.style.cssText = 'font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;background:#0008;padding:8px;border-radius:6px;margin:6px 0';
-    logBox.textContent = logs.length ? logs.slice(-30).join('\n') : '(No console output captured yet.)';
-    panel.appendChild(logBox);
 
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:10px';
@@ -294,13 +290,12 @@
     copy.textContent = 'Copy diagnostics + console';
     copy.style.cssText = 'padding:9px 12px;font:inherit';
     copy.onclick = async () => {
-      const report = reportText(title, detail);
       try {
-        await navigator.clipboard.writeText(report);
+        await navigator.clipboard.writeText(frozenReport);
         copy.textContent = 'Copied';
       } catch (_) {
         const area = document.createElement('textarea');
-        area.value = report;
+        area.value = frozenReport;
         area.readOnly = true;
         area.style.cssText = 'width:100%;min-height:120px;margin-top:8px;font:12px monospace';
         panel.appendChild(area);
