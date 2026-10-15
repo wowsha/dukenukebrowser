@@ -46,3 +46,29 @@ if source.count(needle) != 1:
 
 source_path.write_text(source.replace(needle, replacement, 1), encoding="utf-8")
 print("Applied Emscripten SDL display-mode fallback.")
+
+# Keep the whole potential yielding call chain Asyncify-instrumented. Excluding
+# C_ParseCommand(bool) can leave a null rewind target if game startup reaches a
+# browser yield through a script callback.
+makefile_path = Path("Common.mak")
+makefile = makefile_path.read_text(encoding="utf-8")
+old_asyncify_block = """        # EDuke32's software renderer has deep call chains with large stack-allocated
+        # locals; the Emscripten default 64KB stack is too small. Give it a real
+        # stack. C_ParseCommand recurses per CON nesting level; keep it off the
+        # Asyncify stack so its deep recursion is not instrumented.
+        LINKERFLAGS += -sSTACK_SIZE=16MB -sINITIAL_MEMORY=256MB -sASYNCIFY_REMOVE='C_ParseCommand(bool)'
+"""
+new_asyncify_block = """        # EDuke32's software renderer has deep call chains with large stack-allocated
+        # locals; the Emscripten default 64KB stack is too small. Give it a real
+        # stack. Keep potentially yielding call chains fully instrumented so
+        # Asyncify can safely rewind through startup and script callbacks.
+        LINKERFLAGS += -sSTACK_SIZE=16MB -sINITIAL_MEMORY=256MB
+"""
+if makefile.count(old_asyncify_block) != 1:
+    raise SystemExit(
+        "Expected exactly one Asyncify remove-list block in Common.mak; "
+        f"found {makefile.count(old_asyncify_block)}. Refusing to patch an unknown source revision."
+    )
+
+makefile_path.write_text(makefile.replace(old_asyncify_block, new_asyncify_block, 1), encoding="utf-8")
+print("Removed the unsafe Asyncify exclusion for C_ParseCommand(bool).")
