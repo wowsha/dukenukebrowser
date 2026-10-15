@@ -70,6 +70,7 @@ jobs:
         run: |
           cd upstream
           git apply ../patches/emscripten-frame-resize.patch
+          python3 ../patches/fix-emscripten-display-modes.py
 
       - name: Compile EDuke32 to WebAssembly on GitHub
         run: make -C upstream PLATFORM=EMSCRIPTEN EM_SINGLE_FILE=0 NETDUKE32=1 -j"$(nproc)"
