@@ -59,12 +59,12 @@ diff --git a/source/build/src/sdlayer.cpp b/source/build/src/sdlayer.cpp
 +        var p = window.__e32VideoProbe || (window.__e32VideoProbe = {});
 +        p.surfaceUpdates = (p.surfaceUpdates || 0) + 1;
 +        p.lastSurfaceUpdate = ({
-+            result: $0, width: $1, height: $2, bpp: $3,
++            result: $0, width: $1, height: $2, bpp: $3, error: UTF8ToString($5),
 +            lockcount: $4, canvasWidth: Module.canvas ? Module.canvas.width : null,
 +            canvasHeight: Module.canvas ? Module.canvas.height : null,
 +            at: performance.now()
 +        });
-+    }, surfaceUpdateResult, xres, yres, bpp, lockcount);
++    }, surfaceUpdateResult, xres, yres, bpp, lockcount, SDL_GetError());
 +#endif
 +    if (surfaceUpdateResult)
      {

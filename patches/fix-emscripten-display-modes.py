@@ -72,3 +72,29 @@ if makefile.count(old_asyncify_block) != 1:
 
 makefile_path.write_text(makefile.replace(old_asyncify_block, new_asyncify_block, 1), encoding="utf-8")
 print("Removed the unsafe Asyncify exclusion for C_ParseCommand(bool).")
+
+# Disable SDL's implicit browser yields: the engine explicitly yields from
+# videoShowFrame() and handleevents(), so SDL must not start a nested Asyncify
+# rewind from inside its own surface-present/event-polling calls.
+init_needle = """    int32_t err = 0;
+
+    if (SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
+        err = SDL_InitSubSystem(SDL_INIT_VIDEO);
+"""
+init_replacement = """    int32_t err = 0;
+
+#ifdef __EMSCRIPTEN__
+    SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+#endif
+
+    if (SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
+        err = SDL_InitSubSystem(SDL_INIT_VIDEO);
+"""
+sdlayer = source_path.read_text(encoding="utf-8")
+if sdlayer.count(init_needle) != 1:
+    raise SystemExit(
+        "Expected exactly one SDL video initialization block; "
+        f"found {sdlayer.count(init_needle)}. Refusing to patch an unknown source revision."
+    )
+source_path.write_text(sdlayer.replace(init_needle, init_replacement, 1), encoding="utf-8")
+print("Disabled SDL implicit Asyncify yields before SDL video initialization.")
