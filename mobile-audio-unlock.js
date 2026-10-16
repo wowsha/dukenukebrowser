@@ -51,7 +51,15 @@
     });
   }
 
-  function loadEngine(tag) {
+  // On touch devices the engine's audio path crashes on Android, so start the
+  // engine with sound disabled. The game stays playable without audio until the
+  // underlying fault is fixed. Module.arguments is read when the engine starts,
+  // which happens after this script loads it.
+  function loadEngine(tag, noSound) {
+    if (noSound) {
+      window.Module = window.Module || {};
+      window.Module.arguments = (window.Module.arguments || []).concat(['-nosound']);
+    }
     var script = document.createElement('script');
     script.src = tag.getAttribute('src');
     script.async = false;
@@ -99,7 +107,7 @@
       }
       resumeAll();
       if (gate.parentNode) gate.parentNode.removeChild(gate);
-      loadEngine(tag);
+      loadEngine(tag, true);
     }, { once: true });
   }
 
