@@ -1,15 +1,19 @@
 /*
- * Mobile audio unlock for the Duke Nukem 3D browser build.
+ * Mobile audio gate for the Duke Nukem 3D browser build.
  *
  * Mobile browsers start every AudioContext in the 'suspended' state and only
- * allow it to run after a user gesture. The engine's audio callbacks keep
- * running while the context is suspended, and in that state the mixer hits a
- * divide-by-zero. Desktop browsers usually start audio immediately, which is
- * why the game runs there.
+ * let audio run after a user gesture. The engine's audio callbacks keep running
+ * while the context is suspended, and on Android that hits a divide-by-zero
+ * about 0.6s after the engine starts, before the player can tap anything.
+ * Desktop browsers start audio immediately, which is why the game runs there.
  *
- * This script records every AudioContext the page creates and resumes them on
- * the first user gesture. It runs before the engine scripts, and it does not
- * touch the engine's code.
+ * On touch devices this script shows a "Tap to play" screen and loads the
+ * engine only after the tap, so the engine's AudioContext is created inside a
+ * user gesture and is allowed to run. Desktop loads the engine immediately.
+ *
+ * The build marks the engine script tag in index.html with
+ * type="text/plain" data-dn3d-engine, so the browser does not run it until this
+ * script loads it. The engine itself is not modified.
  */
 (function () {
   'use strict';
@@ -37,33 +41,73 @@
   }
 
   function resumeAll() {
-    var pending = 0;
     contexts.forEach(function (ctx) {
       if (ctx.state !== 'suspended') return;
-      pending++;
       ctx.resume().then(function () {
         console.info('[mobile-audio] AudioContext resumed, state=' + ctx.state);
       }, function (error) {
         console.warn('[mobile-audio] resume failed: ' + error);
       });
     });
-    return pending;
   }
 
-  // Once a context is running, drop the listeners. If nothing has been created
-  // yet, keep listening: the engine may create its context after the first tap.
-  function onGesture() {
-    resumeAll();
-    if (contexts.length && contexts.every(function (ctx) { return ctx.state === 'running'; })) {
-      ['pointerdown', 'touchend', 'click', 'keydown'].forEach(function (type) {
-        document.removeEventListener(type, onGesture, true);
-      });
+  function loadEngine(tag) {
+    var script = document.createElement('script');
+    script.src = tag.getAttribute('src');
+    script.async = false;
+    document.head.appendChild(script);
+  }
+
+  function mount() {
+    var tag = document.querySelector('script[data-dn3d-engine]');
+    if (!tag) return;
+
+    var touch = (navigator.maxTouchPoints || 0) > 0;
+    try { touch = touch || window.matchMedia('(pointer: coarse)').matches; } catch (_) {}
+    if (!touch) {
+      loadEngine(tag);
+      return;
     }
+
+    var gate = document.createElement('div');
+    gate.id = 'dn3d-audio-gate';
+    gate.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;' +
+      'align-items:center;justify-content:center;background:#000;';
+
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'TAP TO PLAY';
+    button.style.cssText = 'padding:16px 28px;font:700 18px system-ui,-apple-system,sans-serif;' +
+      'letter-spacing:.08em;color:#f4f2ea;background:#8a1c12;' +
+      'border:1px solid rgba(255,157,129,.7);border-radius:999px;';
+    gate.appendChild(button);
+    document.body.appendChild(gate);
+
+    button.addEventListener('click', function () {
+      // Create and resume a context inside the gesture so the page is allowed
+      // to run audio, then load the engine. The engine's own context is then
+      // created after a user gesture and can start.
+      try {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (Ctor) {
+          new Ctor().resume().catch(function (error) {
+            console.warn('[mobile-audio] probe resume failed: ' + error);
+          });
+        }
+      } catch (error) {
+        console.warn('[mobile-audio] could not create probe context: ' + error);
+      }
+      resumeAll();
+      if (gate.parentNode) gate.parentNode.removeChild(gate);
+      loadEngine(tag);
+    }, { once: true });
   }
 
-  ['pointerdown', 'touchend', 'click', 'keydown'].forEach(function (type) {
-    document.addEventListener(type, onGesture, true);
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mount);
+  } else {
+    mount();
+  }
 
   window.DukeAudioUnlock = { resumeAll: resumeAll, contexts: contexts };
 })();

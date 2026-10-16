@@ -100,6 +100,11 @@ jobs:
           sed -i "s|</head>|<script src=\"coi-serviceworker.js\"></script>\\n<script src=\"mobile-audio-unlock.js?v=${BUILD_ID}\"></script>\\n<script src=\"engine-diagnostics.js?v=${BUILD_ID}\"></script>\\n</head>|" _site/index.html
           # Inject canvas sizing before the engine script. Match regardless of the build-ID query string.
           sed -i "s|<script src=\"eduke32.js|<script src=\"mobile-canvas-fix.js?v=${BUILD_ID}\"></script>\\n<script src=\"eduke32.js|" _site/index.html
+          # Hold the engine script until mobile-audio-unlock.js loads it (tap-to-play on touch devices).
+          sed -i 's|<script src="eduke32.js|<script type="text/plain" data-dn3d-engine src="eduke32.js|' _site/index.html
+          # Fail the build rather than publish a page where the engine never starts.
+          test "$(grep -c 'data-dn3d-engine' _site/index.html)" = 1
+          test "$(grep -c 'mobile-audio-unlock.js' _site/index.html)" = 1
           sed -i 's|</body>|<script src="mobile-controls.js"></script>\n</body>|' _site/index.html
           touch _site/.nojekyll
           echo "Assembled site:"
